@@ -1,3 +1,5 @@
+from utilities import sort_items_by_efficiency
+
 class Node:
     
     def _calculate_weight_(self,all_items,included_item_ids):
@@ -13,12 +15,10 @@ class Node:
         return value
     
     def _calculate_bound_(self,all_items,constraints):
-        remaining_item_ids = set(all_items.keys()) - set(self.included_item_ids) - set(self.excluded_item_ids)
-        remaining_items = [all_items[item_id] for item_id in remaining_item_ids]
-        remaining_items = sorted(remaining_items, key=lambda item: item['value-ratio'],reverse=True)
+        remaining_items_sorted = sort_items_by_efficiency(all_items,self.included_item_ids,self.excluded_item_ids)
         weight = self.weight
         value = self.value
-        for item in remaining_items:
+        for item in remaining_items_sorted:
             if item['weight'] + weight <= constraints['weight']:
                 value = value + item['value']
                 weight = weight + item['weight']
@@ -38,5 +38,4 @@ class Node:
         self.weight = self._calculate_weight_(all_items,included_item_ids)
         self.value = self._calculate_value_(all_items,included_item_ids)
         self.bound = self._calculate_bound_(all_items,constraints)
-    
     

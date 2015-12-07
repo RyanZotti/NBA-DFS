@@ -26,10 +26,10 @@ class Node:
                 leftover_weight = constraints['weight'] - weight
                 bound = value + ((leftover_weight/item['weight']) * item['value'])
                 return bound
-    
-    def set_bound(self,bound):
-        self.bound = bound
-       
+           
+    def set_child_ids(self,child_ids):
+        self.child_ids = child_ids
+           
     def __init__(self,own_id,parent_id,all_items,included_item_ids,excluded_item_ids,constraints):
         self.id = own_id
         self.parent_id = parent_id
@@ -38,4 +38,5 @@ class Node:
         self.weight = self._calculate_weight_(all_items,included_item_ids)
         self.value = self._calculate_value_(all_items,included_item_ids)
         self.bound = self._calculate_bound_(all_items,constraints)
+        self.child_ids = []
     

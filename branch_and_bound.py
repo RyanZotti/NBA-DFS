@@ -76,16 +76,10 @@ while origin.bound is not max_value:
                 max_value = max(better_node.value,max_value)
                 #print("Exclude: "+str(most_efficient_item['item_id'])+" profit "+str(excluded_item_node.value)+" weight "+str(excluded_item_node.weight)+" Include: profit "+str(included_item_node.value)+" weight "+str(included_item_node.weight))
         elif included_item_node.weight > constraints['weight']:
-            if any(node.weight + item['weight'] <= constraints['weight'] for item in remaining_items_sorted):
-                better_node = excluded_item_node
-                worse_node = included_item_node
-                max_value = max(better_node.value,max_value)
-                #print("Exclude: "+str(most_efficient_item['item_id'])+" profit "+str(excluded_item_node.value)+" weight "+str(excluded_item_node.weight)+" Include: profit "+str(included_item_node.value)+" weight "+str(included_item_node.weight))
-            else:
-                nodes[node.id].bound = node.value # 
-                nodes[included_item_node.id].bound = included_item_node.value
-                node = nodes[node.parent_id]
-                continue
+            nodes[node.id].bound = node.value # 
+            nodes[included_item_node.id].bound = included_item_node.value
+            node = nodes[node.parent_id]
+            continue
         if better_node is not None:
             node = better_node
 print('Best node:')

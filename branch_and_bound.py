@@ -20,6 +20,7 @@ origin = Node(own_id=0,parent_id=None,all_items=items,included_item_ids=[],
 nodes[0]=origin
 max_value = 0
 node = origin
+node_count = 0
 while origin.bound is not max_value:
     n(node.id)
     if len(node.child_ids) > 0: # Explore existing nodes
@@ -45,14 +46,16 @@ while origin.bound is not max_value:
         most_efficient_item = remaining_items_sorted[0]
         candidate_included_items = included_item_ids[:]
         candidate_included_items.append(most_efficient_item['item_id'])
-        included_item_node = Node(own_id=len(nodes),parent_id=node.id,all_items=items,
+        node_count = node_count + 1
+        included_item_node = Node(own_id=node_count,parent_id=node.id,all_items=items,
                                   included_item_ids=candidate_included_items,
                                   excluded_item_ids=excluded_item_ids,
                                   constraints=constraints,generic_constraint='weight')
         nodes[included_item_node.id]=included_item_node
         candidate_excluded_items = excluded_item_ids[:]
         candidate_excluded_items.append(most_efficient_item['item_id'])
-        excluded_item_node = Node(own_id=len(nodes),parent_id=node.id,all_items=items,
+        node_count = node_count + 1
+        excluded_item_node = Node(own_id=node_count,parent_id=node.id,all_items=items,
                                   included_item_ids=included_item_ids,
                                   excluded_item_ids=candidate_excluded_items,
                                   constraints=constraints,generic_constraint='weight')

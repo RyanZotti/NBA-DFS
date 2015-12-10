@@ -5,8 +5,30 @@ con = pymysql.connect(
     host='localhost', unix_socket='/tmp/mysql.sock', 
     user='root', passwd="", db='NBA')
 mysql = con.cursor(pymysql.cursors.DictCursor)
+
+
 mysql.execute("""
-select full_name,target_dfs_points,salary from dfs_salaries where game_date = '2015-03-25'
+create temporary table player_ids
+(index ind1 (player_id))
+select player_id, playerName from Players_BR_original group by player_id
+""")
+
+mysql.execute("""
+create temporary table players_names
+select player_ids.playerName,position from 
+playerHeightAndPosition
+left join  player_ids on
+playerHeightAndPosition.player_id = player_ids.player_id
+where playoff_year = 2015
+""")
+
+mysql.execute("""
+select full_name,target_dfs_points,salary,position from dfs_salaries 
+left join players_names on
+dfs_salaries.full_name = players_names.playerName
+where game_date = '2015-03-25'
+group by full_name
+having position is not null
 """)
 
 items = {}

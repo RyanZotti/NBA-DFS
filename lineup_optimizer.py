@@ -6,22 +6,6 @@ con = pymysql.connect(
     user='root', passwd="", db='NBA')
 mysql = con.cursor(pymysql.cursors.DictCursor)
 
-
-mysql.execute("""
-create temporary table player_ids
-(index ind1 (player_id))
-select player_id, playerName from Players_BR_original group by player_id
-""")
-
-mysql.execute("""
-create temporary table players_names
-select player_ids.playerName,position from 
-playerHeightAndPosition
-left join  player_ids on
-playerHeightAndPosition.player_id = player_ids.player_id
-where playoff_year = 2015
-""")
-
 mysql.execute("""
 select full_name,target_dfs_points,salary,position,
 if(position='PG',1,0) as PG,
@@ -29,12 +13,7 @@ if(position='SG',1,0) as SG,
 if(position='SF',1,0) as SF,
 if(position='PF',1,0) as PF,
 if(position='C',1,0) as C
-from dfs_salaries 
-left join players_names on
-dfs_salaries.full_name = players_names.playerName
-where game_date = '2015-03-25'
-group by full_name
-having position is not null
+from dfs_optimizer_performance_test
 """)
 
 items = {}
@@ -124,4 +103,5 @@ print('Best node:')
 for node_id, node in nodes.items():
     if node.value == max_value and len(node.child_ids) > 0:
         n(node_id)
+        print(included_item_ids)
 print('finished')

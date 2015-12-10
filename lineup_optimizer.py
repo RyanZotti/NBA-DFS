@@ -32,13 +32,15 @@ for item_id,item in items.items():
 constraints = {'salary':60000,'PG':2,'SG':2,'SF':2,'PF':2,'C':1}
 nodes = {}
 origin = Node(own_id=0,parent_id=None,all_items=items,included_item_ids=[],
-              excluded_item_ids=[],constraints=constraints)
+              excluded_item_ids=[],constraints=constraints,generic_constraint="salary")
 nodes[0]=origin
 max_value = 0
 node = origin
 node_count = 0
 while origin.bound is not max_value:
     n(node.id)
+    if len(nodes) % 10000 == 0:
+        print(max_value)
     if len(node.child_ids) > 0: # Explore existing nodes
         # Check if all constraints are met
         if (nodes[node.child_ids[0]].bound <= max_value or any(nodes[node.child_ids[0]].weights[constraint_name] > constraint_value for constraint_name,constraint_value in constraints.items())) and (nodes[node.child_ids[1]].bound <= max_value or any(nodes[node.child_ids[1]].weights[constraint_name] > constraint_value for constraint_name,constraint_value in constraints.items())):

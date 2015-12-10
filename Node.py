@@ -18,11 +18,11 @@ class Node:
         return value
     
     def _calculate_bound_(self,all_items,constraints):
-        remaining_items_sorted = sort_items_by_efficiency(all_items,self.included_item_ids,self.excluded_item_ids)
         weights = self.weights
         value = self.value
-        for item in remaining_items_sorted:
-            for constraint_name, constraint_value in constraints.items():
+        for constraint_name, constraint_value in constraints.items():
+            remaining_items_sorted = sort_items_by_efficiency(all_items,self.included_item_ids,self.excluded_item_ids,constraints,constraint_name)
+            for item in remaining_items_sorted:
                 if item[constraint_name] + weights[constraint_name] <= constraint_value:
                     value = value + item['value']
                     weights[constraint_name] = weights[constraint_name] + item[constraint_name]

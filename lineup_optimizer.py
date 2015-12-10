@@ -23,7 +23,13 @@ where playoff_year = 2015
 """)
 
 mysql.execute("""
-select full_name,target_dfs_points,salary,position from dfs_salaries 
+select full_name,target_dfs_points,salary,position,
+if(position='PG',1,0) as PG,
+if(position='SG',1,0) as SG,
+if(position='SF',1,0) as SF,
+if(position='PF',1,0) as PF,
+if(position='C',1,0) as C
+from dfs_salaries 
 left join players_names on
 dfs_salaries.full_name = players_names.playerName
 where game_date = '2015-03-25'
@@ -33,16 +39,18 @@ having position is not null
 
 items = {}
 for row_index,row in enumerate(mysql.fetchall()):
-    items[row_index]={'full_name':row['full_name'],'value':row['target_dfs_points'],'weight':row['salary']}
+    items[row_index]={'full_name':row['full_name'],'value':row['target_dfs_points'],
+                      'salary':row['salary'],'position':row['position'],'PG':row['PG'],
+                      'SG':row['SG'],'SF':row['SF'],'PF':row['PF'],'C':row['C']}
 
 def n(index):
     node = nodes[index]
-    print('id:{id} w:{weight} b:{bound} parent:{parent} children:{children}'.format(id=node.id,weight=node.weights,bound=node.bound,children=node.child_ids,parent=node.parent_id))
+    print('id:{id} max:{value}, w:{weight} b:{bound} parent:{parent} children:{children}'.format(id=node.id,value=max_value,weight=node.weights,bound=node.bound,children=node.child_ids,parent=node.parent_id))
 
 for item_id,item in items.items():
-    items[item_id]['value-ratio'] = item['value']/item['weight']
+    items[item_id]['value-ratio'] = item['value']/item['salary']
 
-constraints = {'weight':60000}
+constraints = {'salary':60000,'PG':2,'SG':2,'SF':2,'PF':2,'C':1}
 nodes = {}
 origin = Node(own_id=0,parent_id=None,all_items=items,included_item_ids=[],
               excluded_item_ids=[],constraints=constraints)
@@ -52,27 +60,26 @@ node = origin
 while origin.bound is not max_value:
     n(node.id)
     if len(node.child_ids) > 0: # Explore existing nodes
-        for constraint_name, constraint_value in constraints.items():
-            if (nodes[node.child_ids[0]].bound <= max_value or nodes[node.child_ids[0]].weight > constraint_value) and \
-                (nodes[node.child_ids[1]].bound <= max_value or nodes[node.child_ids[1]].weight > constraint_value):
-                possible_bounds = []
-                if nodes[node.child_ids[1]].weights[constraint_name] <= constraint_value:
-                    possible_bounds.append(nodes[node.child_ids[1]].bound)
-                if nodes[node.child_ids[0]].weights[constraint_name] <= constraint_value:
-                    possible_bounds.append(nodes[node.child_ids[0]].bound)
-                nodes[node.id].bound = max(possible_bounds)
-                if node.id > 0: 
-                    node = nodes[node.parent_id]
-                else: # Searched has finished and you have arrived at origin, which has no parent
-                    continue
-            elif nodes[node.child_ids[0]].bound > max_value and nodes[node.child_ids[0]].weights[constraint_name] < constraint_value:
-                node = nodes[node.child_ids[0]]
-            elif nodes[node.child_ids[1]].bound > max_value and nodes[node.child_ids[1]].weights[constraint_name] < constraint_value:
-                node = nodes[node.child_ids[1]]
+        # Check if all constraints are met
+        if (nodes[node.child_ids[0]].bound <= max_value or any(nodes[node.child_ids[0]].weights[constraint_name] > constraint_value for constraint_name,constraint_value in constraints.items())) and (nodes[node.child_ids[1]].bound <= max_value or any(nodes[node.child_ids[1]].weights[constraint_name] > constraint_value for constraint_name,constraint_value in constraints.items())):
+            possible_bounds = []
+            if all(nodes[node.child_ids[1]].weights[constraint_name] <= constraint_value for constraint_name,constraint_value in constraints.items()):
+                possible_bounds.append(nodes[node.child_ids[1]].bound)
+            if all(nodes[node.child_ids[0]].weights[constraint_name] <= constraint_value for constraint_name,constraint_value in constraints.items()):
+                possible_bounds.append(nodes[node.child_ids[0]].bound)
+            nodes[node.id].bound = max(possible_bounds)
+            if node.id > 0: 
+                node = nodes[node.parent_id]
+            else: # Searched has finished and you have arrived at origin, which has no parent
+                continue
+        elif nodes[node.child_ids[0]].bound > max_value and all(nodes[node.child_ids[0]].weights[constraint_name] <= constraint_value for constraint_name,constraint_value in constraints.items()):
+            node = nodes[node.child_ids[0]]
+        elif nodes[node.child_ids[1]].bound > max_value and all(nodes[node.child_ids[1]].weights[constraint_name] <= constraint_value for constraint_name,constraint_value in constraints.items()):
+            node = nodes[node.child_ids[1]]
     else: # Create new nodes because this split hasn't been explored yet
         included_item_ids = node.included_item_ids
         excluded_item_ids = node.excluded_item_ids
-        remaining_items_sorted = sort_items_by_efficiency(items,included_item_ids,excluded_item_ids) 
+        remaining_items_sorted = sort_items_by_efficiency(items,included_item_ids,excluded_item_ids,constraints,'salary') 
         most_efficient_item = remaining_items_sorted[0]
         candidate_included_items = included_item_ids[:]
         candidate_included_items.append(most_efficient_item['item_id'])

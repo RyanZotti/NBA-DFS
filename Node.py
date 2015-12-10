@@ -17,30 +17,29 @@ class Node:
             value = value + all_items[included_item_id]['value']
         return value
     
-    def _calculate_bound_(self,all_items,constraints):
-        weights = self.weights
+    def _calculate_bound_(self,all_items,constraints,generic_constraint):
+        weight = self.weights[generic_constraint]
         value = self.value
-        for constraint_name, constraint_value in constraints.items():
-            remaining_items_sorted = sort_items_by_efficiency(all_items,self.included_item_ids,self.excluded_item_ids,constraints,constraint_name)
-            for item in remaining_items_sorted:
-                if item[constraint_name] + weights[constraint_name] <= constraint_value:
-                    value = value + item['value']
-                    weights[constraint_name] = weights[constraint_name] + item[constraint_name]
-                else:
-                    leftover_weight = constraint_value - weights[constraint_name]
-                    bound = value + ((leftover_weight/item[constraint_name]) * item['value'])
+        remaining_items_sorted = sort_items_by_efficiency(all_items,self.included_item_ids,self.excluded_item_ids,constraints,generic_constraint)
+        for item in remaining_items_sorted:
+            if item[generic_constraint] + weight <= constraints[generic_constraint]:
+                value = value + item['value']
+                weight = weight + item[generic_constraint]
+            else:
+                leftover_weight = constraints[generic_constraint] - weight
+                bound = value + ((leftover_weight/item[generic_constraint]) * item['value'])
+                break
         return bound
            
     def set_child_ids(self,child_ids):
         self.child_ids = child_ids
            
-    def __init__(self,own_id,parent_id,all_items,included_item_ids,excluded_item_ids,constraints):
+    def __init__(self,own_id,parent_id,all_items,included_item_ids,excluded_item_ids,constraints,generic_constraint):
         self.id = own_id
         self.parent_id = parent_id
         self.included_item_ids = included_item_ids
         self.excluded_item_ids = excluded_item_ids
         self.weights = self._calculate_weight_(all_items,included_item_ids,constraints)
         self.value = self._calculate_value_(all_items,included_item_ids)
-        self.bound = self._calculate_bound_(all_items,constraints)
+        self.bound = self._calculate_bound_(all_items,constraints,generic_constraint)
         self.child_ids = []
-    

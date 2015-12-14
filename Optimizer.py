@@ -1,14 +1,17 @@
 import pymysql
 from Node import Node
-from utilities import sort_items_by_efficiency
+from utilities import sort_items_by_efficiency, calculate_target_value
 
 class Optimizer:
 
-    def __init__(self):
+    def __init__(self,table,game_date,max_iterations):
         self.con = pymysql.connect(
             host='localhost', unix_socket='/tmp/mysql.sock', 
             user='root', passwd="", db='NBA')
         self.mysql = self.con.cursor(pymysql.cursors.DictCursor)
+        self.table = table
+        self.game_date = game_date
+        self.max_iterations = max_iterations
 
     def get_best_lineup(self):
 
@@ -21,7 +24,7 @@ class Optimizer:
         if(position='PF',1,0) as PF,
         if(position='C',1,0) as C
         from {table} where game_date = '{game_date}'
-        """.format(table='dfs_avg_preds',game_date='2015-02-11'))
+        """.format(table=self.table,game_date=self.game_date))
 
         items = {}
         for row_index,row in enumerate(self.mysql.fetchall()):
@@ -49,6 +52,9 @@ class Optimizer:
             move_counter = move_counter + 1 
             if move_counter % 1000 == 0:
                 print('{max_value}, {move_counter}'.format(max_value=max_value,move_counter=move_counter))
+            if move_counter % self.max_iterations == 0:
+                print('Optimization taking too long')
+                break
             if len(node.child_ids) > 0: # Explore existing nodes
                 # Check if all constraints are met
                 if (nodes[node.child_ids[0]].bound <= max_value or any(nodes[node.child_ids[0]].weights[constraint_name] > constraint_value for constraint_name,constraint_value in constraints.items())) and (nodes[node.child_ids[1]].bound <= max_value or any(nodes[node.child_ids[1]].weights[constraint_name] > constraint_value for constraint_name,constraint_value in constraints.items())):
@@ -115,13 +121,13 @@ class Optimizer:
         best_node = None
         for node_id, node in nodes.items():
             if node.value == max_value and len(node.child_ids) > 0:
-                n(node_id)
+                #n(node_id)
                 best_node = node
-                print(included_item_ids)
+                print('actual value: '+str(calculate_target_value(items,node.included_item_ids)),' max: '+str(max_value))
         print('finished')
         return best_node
-
+        
 if __name__ == '__main__':
     print(__name__)
-    optimizer = Optimizer()
-    print(optimizer.get_best_lineup())
+    optimizer = Optimizer('dfs_avg_preds','2015-02-11',10000)
+    best_node = optimizer.get_best_lineup()

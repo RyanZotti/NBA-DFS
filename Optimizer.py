@@ -4,16 +4,14 @@ from utilities import sort_items_by_efficiency, calculate_target_value
 
 class Optimizer:
 
-    def __init__(self,table,game_date,max_iterations):
+    def __init__(self,max_iterations):
         self.con = pymysql.connect(
             host='localhost', unix_socket='/tmp/mysql.sock', 
             user='root', passwd="", db='NBA')
         self.mysql = self.con.cursor(pymysql.cursors.DictCursor)
-        self.table = table
-        self.game_date = game_date
         self.max_iterations = max_iterations
 
-    def get_best_lineup(self):
+    def get_best_lineup(self,table,game_date):
 
         # Use any table as long as the required columns are present
         self.mysql.execute("""
@@ -24,7 +22,7 @@ class Optimizer:
         if(position='PF',1,0) as PF,
         if(position='C',1,0) as C
         from {table} where game_date = '{game_date}'
-        """.format(table=self.table,game_date=self.game_date))
+        """.format(table=table,game_date=game_date))
 
         items = {}
         for row_index,row in enumerate(self.mysql.fetchall()):
@@ -123,11 +121,13 @@ class Optimizer:
             if node.value == max_value and len(node.child_ids) > 0:
                 #n(node_id)
                 best_node = node
+                best_node.actual_value = calculate_target_value(items,node.included_item_ids)
                 print('actual value: '+str(calculate_target_value(items,node.included_item_ids)),' max: '+str(max_value))
         print('finished')
         return best_node
-        
+
 if __name__ == '__main__':
     print(__name__)
-    optimizer = Optimizer('dfs_avg_preds','2015-02-11',10000)
-    best_node = optimizer.get_best_lineup()
+    optimizer = Optimizer(max_iterations=10000)
+    best_node = optimizer.get_best_lineup('dfs_avg_preds','2015-02-11')
+    print(best_node.actual_value)

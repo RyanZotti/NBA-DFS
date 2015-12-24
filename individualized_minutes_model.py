@@ -37,9 +37,8 @@ def get_team_game_dates(playoff_year,team):
         dates.append(row['game_date'])
     return dates
 
-def get_training_set(team,target_date,playoff_year):
-    mysql.execute('''
-        select a.*,MP_avg_prev, if(vegas_pred < 6.5 and p.starter='starter',1,0) as vegas_line,
+sql_query_get_dataset = '''
+    select a.*,MP_avg_prev, if(vegas_pred < 6.5 and p.starter='starter',1,0) as vegas_line,
             if(p.starter='starter',1,0) as starter_ind from (
             select d.*,
             left(t_players.MP,locate(':',t_players.MP)-1) as MP_target,
@@ -49,37 +48,22 @@ def get_training_set(team,target_date,playoff_year):
             left join pace on d.predictor_gameid = pace.game_id
             left join players as prev_players on d.predictor_gameid = prev_players.game_id and d.team = prev_players.team and d.player_id = prev_players.player_id
             left join players as t_players on d.target_gameid = t_players.game_id and d.team = t_players.team and d.player_id = t_players.player_id
-            where playoffyear in ({playoff_year}) and time_index < 3 and d.t_date < '{t_date}' and d.team = '{team}'
+            where playoffyear in ({playoff_year}) and time_index < 3 and d.t_date {date_constraint} '{t_date}' and d.team = '{team}'
             group by target_gameid, player_id) as a
         left join DFS_predictors as d on
         a.target_gameid = d.target_gameid and a.team = d.team and a.player_id = d.player_id
         left join players as p on a.target_gameid = p.game_id and a.team = p.team and a.player_id = p.player_id
         left join matches as m on a.target_gameid = m.game_id
         having MP_avg_prev is not null and MP_avg_prev_x_games is not null and MP_target is not null
-    '''.format(team=team,playoff_year=playoff_year,t_date=target_date))
+'''
+
+def get_training_set(team,target_date,playoff_year):
+    mysql.execute(sql_query_get_dataset.format(team=team,playoff_year=playoff_year,t_date=target_date,date_constraint='<'))
     dataset = DataFrame(mysql.fetchall())
     return dataset
 
 def get_test_set(team,target_date,playoff_year):
-    mysql.execute('''
-        select a.*,MP_avg_prev, if(vegas_pred < 6.5 and p.starter='starter',1,0) as vegas_line,
-        if(p.starter='starter',1,0) as starter_ind from (
-            select d.*,
-            left(t_players.MP,locate(':',t_players.MP)-1) as MP_target,
-            avg(left(prev_players.MP,locate(':',prev_players.MP)-1)) as MP_avg_prev_x_games,
-            avg(left(prev_players.MP,locate(':',prev_players.MP)-1)*48/pace.minutes) as MP_avg_prev_x_games_ot_rescaled
-            from drivers_players_ranked as d
-            left join pace on d.predictor_gameid = pace.game_id
-            left join players as prev_players on d.predictor_gameid = prev_players.game_id and d.team = prev_players.team and d.player_id = prev_players.player_id
-            left join players as t_players on d.target_gameid = t_players.game_id and d.team = t_players.team and d.player_id = t_players.player_id
-            where playoffyear in ({playoff_year}) and time_index < 3 and d.t_date = '{t_date}' and d.team = '{team}'
-            group by target_gameid, player_id) as a
-        left join DFS_predictors as d on
-        a.target_gameid = d.target_gameid and a.team = d.team and a.player_id = d.player_id
-        left join players as p on a.target_gameid = p.game_id and a.team = p.team and a.player_id = p.player_id
-        left join matches as m on a.target_gameid = m.game_id
-        having MP_avg_prev is not null and MP_avg_prev_x_games is not null and MP_target is not null
-    '''.format(team=team,playoff_year=playoff_year,t_date=target_date))
+    mysql.execute(sql_query_get_dataset.format(team=team,playoff_year=playoff_year,t_date=target_date,date_constraint='='))
     dataset = DataFrame(mysql.fetchall())
     return dataset
 

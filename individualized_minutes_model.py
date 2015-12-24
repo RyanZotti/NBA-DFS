@@ -6,8 +6,11 @@ from sklearn.grid_search import GridSearchCV
 from sklearn.metrics import mean_squared_error
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.linear_model import ElasticNet
+
 con = pymysql.connect(host='localhost', unix_socket='/tmp/mysql.sock', user='root', passwd="", db='NBA')
 mysql = con.cursor(pymysql.cursors.DictCursor)
+model_types = {'GBM':GradientBoostingRegressor(),
+               'ElasticNet':ElasticNet()}
 
 def get_teams(playoff_year):
     mysql.execute('''
@@ -19,7 +22,6 @@ def get_teams(playoff_year):
     return teams
 
 def get_team_game_dates(playoff_year,team):
-    # Don't select the first game because I won't have any historical data to use
     minimum_games = 10
     mysql.execute('set @rownum := 0;')
     mysql.execute(''' 
@@ -93,12 +95,18 @@ def save_predictions(predictions):
         mysql.execute("""insert into individualized_minutes_pred(playoffyear, target_gameid, team, player_id, pred, mp_avg_prev, target) values("{playoffyear}","{target_gameid}","{team}","{player_id}","{pred}","{mp_avg_prev}","{target}")""".format(playoffyear=playoffyear,target_gameid=target_gameid,team=team,player_id=player_id,pred=pred,mp_avg_prev=mp_avg_prev,target=target))
         con.commit()
 
-def elastic_net(training,validation,predictor_sets):
-    parameters = [{'alpha':np.arange(0.3,1,0.1),'l1_ratio':np.arange(0.1,1,0.1)}]
+def get_best_scores(model_type,predictor_sets,training,validation,team,target_date):
+    parameters = []
+    if model_type == 'GBM':
+        training_record_count = len(training)
+        parameters = get_gbm_parameters(training_record_count)
+    elif model_type == 'ElasticNet':
+        training_record_count = len(training)
+        parameters = get_elastic_net_paramaters()
     results = {}
     hashable_results = {}
     for predictor_set in predictor_sets:
-        model = GridSearchCV(ElasticNet(), parameters,n_jobs=8)
+        model = GridSearchCV(model_types[model_type], parameters,n_jobs=8)
         model.fit(training[predictor_set], training['MP_target'])
         validation['pred']=model.predict(validation[predictor_set])
         rmse_model = np.sqrt(mean_squared_error(validation['MP_target'], validation['pred']))
@@ -112,32 +120,20 @@ def elastic_net(training,validation,predictor_sets):
     validation['predicted_minutes']=model.predict(validation[hashable_results[best_predictor_set]])
     print(team+" "+str(target_date)+" "+best_predictor_set)
     return validation
+
+def get_elastic_net_paramaters():
+    parameters = [{'alpha':np.arange(0.3,1,0.1),'l1_ratio':np.arange(0.1,1,0.1)}]
+    return parameters
     
-def gbm(training,validation,predictor_sets):
+def get_gbm_parameters(training_record_count):
     size_denominator = 5
-    max_trees = int((len(training) - len(training)%size_denominator)/size_denominator) # 1/10 as a rule of thumb
+    max_trees = int((training_record_count - training_record_count%size_denominator)/size_denominator) # 1/10 as a rule of thumb
     min_trees = 5
     range_of_trees = list(range(min_trees,max(min_trees,max_trees)+1,25)) # Looks like 5, 30, 55, 80, etc
     parameters = {'n_estimators':range_of_trees,
                   'learning_rate':[.01,0.1],
                   'max_depth':[1,2,3]}
-    results = {}
-    hashable_results = {}
-    for predictor_set in predictor_sets:
-        model = GridSearchCV(GradientBoostingRegressor(), parameters,n_jobs=8)
-        model.fit(training[predictor_set], training['MP_target'])
-        validation['pred']=model.predict(validation[predictor_set])
-        rmse_model = np.sqrt(mean_squared_error(validation['MP_target'], validation['pred']))
-        results[str(predictor_set)]=rmse_model
-        hashable_results[str(predictor_set)]=predictor_set
-    sorted_results = sorted(results.items(), key=operator.itemgetter(1))
-    for result in sorted_results:
-        best_predictor_set = result[0]
-        break
-    model.fit(training[hashable_results[best_predictor_set]], training['MP_target'])
-    validation['predicted_minutes']=model.predict(validation[hashable_results[best_predictor_set]])
-    print(team+" "+str(target_date)+" "+best_predictor_set)
-    return validation
+    return parameters
     
 playoff_year = 2003
 teams = get_teams(playoff_year)
@@ -154,7 +150,8 @@ for team in teams:
             ['MP_avg_prev_x_games_ot_rescaled'],
             ['MP_avg_prev_x_games']
         ]
-        validation=elastic_net(training,validation,predictor_sets)
+        #validation=elastic_net(training,validation,predictor_sets)
+        #validation=gbm(training,validation,predictor_sets)
+        validation=get_best_scores('ElasticNet',predictor_sets,training,validation,team,target_date)
         save_predictions(validation)
-        #print(team+" "+str(target_date))
 print('Finished')
